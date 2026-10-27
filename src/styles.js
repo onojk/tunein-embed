@@ -60,6 +60,13 @@ svg{width:22px;height:22px;fill:currentColor}
 .mute:hover{opacity:1}
 .mute svg{width:20px;height:20px}
 .vol{flex:1;min-width:50px;max-width:160px;accent-color:var(--_accent);height:20px;margin:0;cursor:pointer;background:none}
+.history{position:relative;border-top:1px solid rgba(127,127,127,.18);padding:0 16px;font-size:13px}
+.history summary{cursor:pointer;padding:10px 0;opacity:.75;font-weight:600;list-style-position:inside}
+.history summary:hover{opacity:1}
+.history ol{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.history li{display:flex;gap:10px;min-width:0}
+.history time{flex:none;opacity:.55;font-variant-numeric:tabular-nums;min-width:4.5em}
+.history span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .msg{margin-top:8px;font-size:12.5px;line-height:1.4;opacity:.9}
 .msg a{color:var(--_accent)}
 @keyframes rp-spin{to{transform:rotate(360deg)}}

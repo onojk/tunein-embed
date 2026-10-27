@@ -10,6 +10,7 @@
   "scripts": {
     "build": "npx --yes esbuild@0.28.2 src/index.js --bundle --minify --format=iife --target=es2018 --legal-comments=inline --outfile=dist/player.js && node scripts/size.js",
     "dev": "npx --yes esbuild@0.28.2 src/index.js --bundle --format=iife --target=es2018 --outfile=dist/player.js --watch",
-    "serve": "python3 -m http.server 8080"
+    "test": "npx --yes esbuild@0.28.2 test/parsers.test.js --bundle --platform=node --log-level=warning | node",
+    "mock": "python3 test/mock-server.py"
   }
 }

@@ -1,5 +1,7 @@
 import { css } from './styles.js';
 import { isIOS, storage } from './util.js';
+import { MetadataSource } from './metadata.js';
+import { lookupArt } from './art.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 const ICON = {
@@ -28,17 +30,19 @@ const TEMPLATE = `
       <div class="msg" part="message" role="status" hidden></div>
     </div>
   </div>
+  <details class="history" part="history" hidden><summary>Recently played</summary><ol></ol></details>
 </div>`;
 
 const BADGE = { idle: 'LIVE', loading: 'CONNECTING', playing: 'LIVE', reconnecting: 'RECONNECTING', error: 'OFFLINE' };
 const STALL_MS = 15000; // no playback progress for this long => reconnect
 const GIVE_UP_AFTER = 5; // failed attempts before first successful play => stop and show error
+const HISTORY_SIZE = 10;
 
 let activePlayer = null; // only one <radio-player> plays at a time per page
 
 export class RadioPlayer extends HTMLElement {
   static get observedAttributes() {
-    return ['src', 'title', 'volume'];
+    return ['src', 'title', 'volume', 'meta', 'poll', 'art', 'logo', 'history'];
   }
 
   constructor() {
@@ -51,6 +55,7 @@ export class RadioPlayer extends HTMLElement {
       badge: q('.badge b'), station: q('.station'), marquee: q('.marquee'), track: q('.track'),
       spans: root.querySelectorAll('.track span'),
       play: q('.play'), mute: q('.mute'), vol: q('.vol'), msg: q('.msg'),
+      history: q('.history'), historyList: q('.history ol'),
     };
     this.state = 'idle';
     this.wantPlay = false;
@@ -58,6 +63,7 @@ export class RadioPlayer extends HTMLElement {
     this.everPlayed = false;
     this.audio = null;
     this.now = null; // current track { artist, title, text, art }
+    this.history = []; // previous tracks, newest first: { ...track, time }
 
     const stored = parseFloat(storage('tunein-embed:volume'));
     this._volume = Number.isFinite(stored) ? stored : 0.8;
@@ -91,22 +97,36 @@ export class RadioPlayer extends HTMLElement {
       });
       this._ro.observe(this.ui.rp);
     }
+    this._renderHistory();
+    this._startMeta();
   }
 
   disconnectedCallback() {
     this.pause();
+    this._stopMeta();
     window.removeEventListener('online', this._onOnline);
     if (this._ro) this._ro.disconnect();
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
     if (oldVal === newVal || !this.isConnected) return;
-    if (name === 'title') {
+    if (name === 'title' || name === 'logo') {
       this._renderStation();
       this._renderTrack();
-    } else if (name === 'src' && this.wantPlay) {
-      this.pause();
-      this.play();
+    } else if (name === 'src') {
+      this.now = null;
+      this.history = [];
+      this._renderTrack();
+      this._renderHistory();
+      this._startMeta();
+      if (this.wantPlay) {
+        this.pause();
+        this.play();
+      }
+    } else if (name === 'meta' || name === 'poll') {
+      this._startMeta();
+    } else if (name === 'history') {
+      this._renderHistory();
     } else if (name === 'volume') {
       this._setVolume(parseFloat(newVal));
     }
@@ -115,7 +135,94 @@ export class RadioPlayer extends HTMLElement {
   // ---- public API --------------------------------------------------------
 
   get stationName() {
-    return this.getAttribute('title') || 'Live Radio';
+    return this.getAttribute('title') || this._metaStation || 'Live Radio';
+  }
+
+  // ---- metadata ----------------------------------------------------------
+
+  _startMeta() {
+    this._stopMeta();
+    const mode = (this.getAttribute('meta') || 'auto').trim();
+    const stream = this._streamUrl();
+    if (mode === 'off' || !stream) return;
+    this._meta = new MetadataSource(stream, mode);
+    this._metaFails = 0;
+    const secs = Math.max(5, parseFloat(this.getAttribute('poll')) || 15);
+    this._metaTimer = setInterval(() => this._pollMeta(), secs * 1000);
+    this._pollMeta();
+  }
+
+  _stopMeta() {
+    clearInterval(this._metaTimer);
+    this._metaTimer = this._meta = null;
+  }
+
+  async _pollMeta() {
+    const source = this._meta;
+    // While stopped, only poll when the page is visible (keeps the lock screen fresh while playing).
+    if (!source || this._metaBusy || (document.hidden && !this.wantPlay)) return;
+    this._metaBusy = true;
+    try {
+      const t = await source.fetch();
+      if (source !== this._meta) return;
+      this._metaFails = 0;
+      if (t.station && t.station !== this._metaStation) {
+        this._metaStation = t.station;
+        this._renderStation();
+      }
+      this._setTrack(t);
+    } catch (e) {
+      // Give up quietly after repeated failures (usually missing CORS headers); the
+      // station name stays as the now-playing text. A new play() retries.
+      if (++this._metaFails >= 3 && source === this._meta) {
+        clearInterval(this._metaTimer);
+        this._metaTimer = null;
+        console.info('[radio-player] now-playing metadata unavailable:', e.message);
+      }
+    } finally {
+      this._metaBusy = false;
+    }
+  }
+
+  _setTrack(t) {
+    if (!t.text || t.text === this.stationName) t = null;
+    if ((t && t.text) === (this.now && this.now.text)) return;
+    if (this.now) {
+      this.history.unshift({ ...this.now, time: new Date() });
+      this.history.length = Math.min(this.history.length, HISTORY_SIZE);
+      this._renderHistory();
+    }
+    this.now = t;
+    this._renderTrack();
+    this._renderArt();
+    this._updateMediaMetadata();
+    if (t && !t.art && this.getAttribute('art') === 'itunes') {
+      lookupArt(t).then((art) => {
+        if (art && this.now === t) {
+          t.art = art;
+          this._renderArt();
+          this._updateMediaMetadata();
+        }
+      });
+    }
+    this.dispatchEvent(new CustomEvent('rp-track', { detail: t, bubbles: true, composed: true }));
+  }
+
+  _renderHistory() {
+    const mode = this.getAttribute('history') || 'off';
+    const { history, historyList } = this.ui;
+    history.hidden = mode === 'off' || !this.history.length;
+    if (mode === 'open' && !this._historyOpened) history.open = this._historyOpened = true;
+    historyList.textContent = '';
+    for (const t of this.history) {
+      const li = document.createElement('li');
+      const time = document.createElement('time');
+      time.textContent = t.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const text = document.createElement('span');
+      text.textContent = t.text;
+      li.append(time, text);
+      historyList.appendChild(li);
+    }
   }
 
   get playing() {
@@ -140,6 +247,7 @@ export class RadioPlayer extends HTMLElement {
     if (!this.audio) this._createAudio();
     this._load(url);
     this._setupMediaSession();
+    if (this._meta && !this._metaTimer) this._startMeta(); // metadata gave up earlier: try again
     this._watchdog = this._watchdog || setInterval(() => this._tick(), 2000);
   }
 
@@ -377,7 +485,8 @@ export class RadioPlayer extends HTMLElement {
   }
 
   _renderArt() {
-    const src = (this.now && this.now.art) || this._logo();
+    const trackArt = this.getAttribute('art') !== 'off' && this.now && this.now.art;
+    const src = trackArt || this._logo();
     const img = this.ui.art;
     if (!src) {
       img.hidden = true;
