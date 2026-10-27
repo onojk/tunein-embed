@@ -115,13 +115,14 @@ export class RadioPlayer extends HTMLElement {
     window.addEventListener('online', this._onOnline);
     if (window.ResizeObserver) {
       let lastW = 0;
+      let lastH = 0;
       this._ro = new ResizeObserver(([entry]) => {
         const w = Math.round(entry.contentRect.width);
-        if (w !== lastW) {
-          lastW = w;
-          this._fitMarquee();
-          if (this.viz) this.viz.resize();
-        }
+        const h = Math.round(entry.contentRect.height); // e.g. "Recently played" opened
+        if (w !== lastW) this._fitMarquee();
+        if ((w !== lastW || h !== lastH) && this.viz) this.viz.resize();
+        lastW = w;
+        lastH = h;
       });
       this._ro.observe(this.ui.rp);
     }
