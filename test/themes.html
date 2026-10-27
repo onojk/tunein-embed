@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>themes</title>
+<style>
+  body { margin: 0; padding: 24px; background: #8a8f9c; font: 13px system-ui; display: grid; gap: 16px; }
+  .row { display: flex; gap: 16px; align-items: start; flex-wrap: wrap; }
+  .custom { --rp-accent: #19c37d; --rp-bg: #0b1f17; --rp-radius: 6px; --rp-font: Georgia, serif; }
+</style>
+<script src="../dist/player.js"></script>
+<radio-player id="p1" src="http://127.0.0.1:8001/live.mp3" history="open" poll="5" theme="dark"></radio-player>
+<div class="row">
+  <radio-player style="width:300px" src="http://127.0.0.1:8001/live.mp3" title="Narrow Light" theme="light" meta="off"></radio-player>
+  <radio-player style="width:420px" class="custom" src="http://127.0.0.1:8001/live.mp3" title="Custom Properties" visualizer="bars" meta="off"></radio-player>
+</div>
+<script>
+  // Start the first one so the screenshot shows the playing state; fake a history.
+  setTimeout(() => {
+    p1.play();
+    p1._setTrack({ artist: 'Mira Vale', title: 'Glasshouse', text: 'Mira Vale - Glasshouse' });
+    p1._setTrack({ artist: 'The Paper Owls', title: 'Slow Orbit', text: 'The Paper Owls - Slow Orbit' });
+  }, 300);
+</script>

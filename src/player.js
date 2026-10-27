@@ -60,7 +60,7 @@ function probeCors(url) {
 
 export class RadioPlayer extends HTMLElement {
   static get observedAttributes() {
-    return ['src', 'title', 'volume', 'meta', 'poll', 'art', 'logo', 'history', 'visualizer', 'cors'];
+    return ['src', 'title', 'volume', 'meta', 'poll', 'art', 'logo', 'history', 'visualizer', 'cors', 'theme'];
   }
 
   constructor() {
@@ -151,6 +151,8 @@ export class RadioPlayer extends HTMLElement {
       this._startMeta();
     } else if (name === 'visualizer' || name === 'cors') {
       this._applyVisualizer();
+    } else if (name === 'theme') {
+      if (this.viz) this.viz.resize(); // re-reads the accent colour
     } else if (name === 'history') {
       this._renderHistory();
     } else if (name === 'volume') {
@@ -588,6 +590,7 @@ export class RadioPlayer extends HTMLElement {
 
   _renderTrack() {
     const text = (this.now && this.now.text) || this.stationName;
+    this.ui.rp.classList.toggle('no-track', !this.now);
     const { marquee, spans } = this.ui;
     if (spans[0].textContent === text) return;
     spans[0].textContent = spans[1].textContent = text;

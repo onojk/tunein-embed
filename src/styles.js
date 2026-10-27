@@ -15,6 +15,10 @@ export const css = `
   color:var(--_fg);
   line-height:1.3;
 }
+:host([theme=light]){--_accent:var(--rp-accent,#e3264b);--_bg:var(--rp-bg,#ffffff);--_fg:var(--rp-fg,#17181f)}
+@media (prefers-color-scheme:light){
+  :host([theme=auto]){--_accent:var(--rp-accent,#e3264b);--_bg:var(--rp-bg,#ffffff);--_fg:var(--rp-fg,#17181f)}
+}
 :host([hidden]){display:none}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -25,10 +29,9 @@ export const css = `
 .art-wrap{position:relative;flex:none;width:var(--_art);height:var(--_art);border-radius:50%;
   box-shadow:0 0 0 calc(2px + var(--lvl,0) * 7px) rgba(127,127,127,.18);transition:box-shadow .12s}
 .art,.art-fallback{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover}
-.art-fallback{display:grid;place-items:center;background:radial-gradient(circle at 30% 30%,var(--_accent),#2a2140 75%);
-  color:#fff;font-weight:700;font-size:calc(var(--_art) * .3);letter-spacing:.02em}
-.art-fallback::after{content:"";position:absolute;width:16%;height:16%;border-radius:50%;background:var(--_bg);
-  box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.art-fallback{display:grid;place-items:center;color:#fff;font-weight:700;font-size:calc(var(--_art) * .26);
+  letter-spacing:.03em;background:repeating-radial-gradient(circle,rgba(255,255,255,.07) 0 1px,transparent 1px 4px),
+  radial-gradient(circle at 30% 30%,var(--_accent),#24203a 78%)}
 .spin .art,.spin .art-fallback{animation:rp-spin 24s linear infinite}
 .body{position:relative;flex:1;min-width:0}
 .top{display:flex;align-items:center;gap:8px;min-width:0}
@@ -38,6 +41,7 @@ export const css = `
 [data-state=playing] .badge{background:var(--_accent);color:#fff}
 [data-state=playing] .badge i{opacity:1;animation:rp-pulse 1.6s ease-in-out infinite}
 [data-state=error] .badge{background:rgba(127,127,127,.3)}
+.no-track .station{display:none}
 .station{font-size:13px;opacity:.75;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .marquee{margin-top:6px;overflow:hidden;white-space:nowrap;font-size:17px;font-weight:650}
 .marquee .track{display:inline-flex;gap:48px}
@@ -69,6 +73,20 @@ svg{width:22px;height:22px;fill:currentColor}
 .history span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .msg{margin-top:8px;font-size:12.5px;line-height:1.4;opacity:.9}
 .msg a{color:var(--_accent)}
+/* Responsive: sized by the player's own width, not the viewport (works in sidebars too). */
+@container (max-width:400px){
+  .rp{--_art:72px}
+  .main{gap:12px;padding:12px}
+  .marquee{font-size:15.5px}
+  .controls{margin-top:8px}
+  .history{padding:0 12px}
+}
+@container (min-width:640px){
+  .rp{--_art:124px}
+  .main{gap:22px;padding:20px 24px}
+  .marquee{font-size:21px}
+  .station{font-size:14px}
+}
 @keyframes rp-spin{to{transform:rotate(360deg)}}
 @keyframes rp-pulse{50%{opacity:.35}}
 @keyframes rp-marquee{to{transform:translateX(calc(-1 * var(--dist,0px)))}}

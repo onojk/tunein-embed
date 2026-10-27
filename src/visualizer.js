@@ -16,6 +16,7 @@ export class Visualizer {
     this.analyser = null;
     this.visible = true;
     this.level = new Float32Array(BARS); // smoothed energies 0..1
+    this._n = 0;
     this._frame = this._frame.bind(this);
     this.resize();
     if (window.IntersectionObserver) {
@@ -25,14 +26,18 @@ export class Visualizer {
       });
       this._io.observe(canvas);
     }
-    this._onVis = () => this._kick();
+    this._onVis = () => this._kick(true);
     document.addEventListener('visibilitychange', this._onVis);
+    // theme="auto" changes colours with the OS setting.
+    this._mq = window.matchMedia && matchMedia('(prefers-color-scheme: light)');
+    if (this._mq && this._mq.addEventListener) this._mq.addEventListener('change', this._onVis);
   }
 
   destroy() {
     cancelAnimationFrame(this._raf);
     if (this._io) this._io.disconnect();
     document.removeEventListener('visibilitychange', this._onVis);
+    if (this._mq && this._mq.removeEventListener) this._mq.removeEventListener('change', this._onVis);
     this.detach();
     if (this.audioCtx) this.audioCtx.close();
   }
@@ -118,6 +123,7 @@ export class Visualizer {
   }
 
   _frame(now) {
+    if (++this._n % 60 === 0) this._readColor(); // pick up live --rp-accent changes
     this._raf = 0;
     this._draw(now / 1000, true);
     this._kick();
