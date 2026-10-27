@@ -1,0 +1,7 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src http://127.0.0.1:8091; connect-src 'self' http://127.0.0.1:8091; img-src 'self' data:">
+<title>csp test</title>
+<script src="../dist/player.js"></script>
+<script src="csp.js"></script>
+<radio-player id="p" src="http://127.0.0.1:8091/live.mp3" poll="5"></radio-player>

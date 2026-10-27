@@ -40,6 +40,7 @@ const GIVE_UP_AFTER = 5; // failed attempts before first successful play => stop
 const HISTORY_SIZE = 10;
 
 let activePlayer = null; // only one <radio-player> plays at a time per page
+let sheet = null; // shared by every player on the page
 
 // Does the stream server send CORS headers? Decides whether Web Audio is safe to use.
 // fetch() resolves as soon as headers arrive; we then cancel the endless body.
@@ -66,7 +67,15 @@ export class RadioPlayer extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = `<style>${css}</style>${TEMPLATE}`;
+    // Constructable stylesheets aren't subject to CSP style-src, so the player works on
+    // sites without 'unsafe-inline'. Older browsers get a <style> element instead.
+    if ('adoptedStyleSheets' in root && 'replaceSync' in CSSStyleSheet.prototype) {
+      if (!sheet) (sheet = new CSSStyleSheet()).replaceSync(css);
+      root.adoptedStyleSheets = [sheet];
+      root.innerHTML = TEMPLATE;
+    } else {
+      root.innerHTML = `<style>${css}</style>${TEMPLATE}`;
+    }
     const q = (s) => root.querySelector(s);
     this.ui = {
       rp: q('.rp'), canvas: q('.viz'), artWrap: q('.art-wrap'), art: q('.art'), fallback: q('.art-fallback'),

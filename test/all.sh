@@ -13,6 +13,6 @@ if [ $# -gt 0 ]; then
   test/run.sh "$@"
 else
   UPSTREAM=http://127.0.0.1:8092 PORT=8093 timeout 150 node proxy/proxy.js >/dev/null &
-  for t in proxy:13 playback:24 metadata:14 visualizer:32 iframe:8; do test/run.sh "${t%%:*}" "${t##*:}"; done
+  for t in csp:10 proxy:13 playback:24 metadata:14 visualizer:32 iframe:8; do test/run.sh "${t%%:*}" "${t##*:}"; done
 fi
 grep -v '^mock servers' "$log" | sed 's/^REPORT //'

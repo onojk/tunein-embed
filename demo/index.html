@@ -45,13 +45,15 @@
   <div class="card">
     <form id="f" onsubmit="return false">
       <label class="wide">Stream URL (must be https:// here)
-        <input name="src" type="url" required placeholder="https://radio.example.com:8443/stream" value="https://ice1.somafm.com/groovesalad-128-mp3">
+        <input name="src" type="url" required placeholder="https://radio.example.com:8443/stream" value="https://icecast.walmradio.com:8443/classic">
       </label>
       <div class="presets wide">Try:
-        <button type="button" data-src="https://ice1.somafm.com/groovesalad-128-mp3" data-title="SomaFM Groove Salad">SomaFM (Icecast)</button>
-        <button type="button" data-src="https://icecast.radiofrance.fr/fip-midfi.mp3" data-title="FIP">FIP (Icecast)</button>
+        <button type="button" data-src="https://icecast.walmradio.com:8443/classic" data-title="Classic Vinyl HD">Classic Vinyl (Icecast)</button>
+        <button type="button" data-src="https://icecast.walmradio.com:8443/jazz" data-title="Adroit Jazz Underground">Jazz (Icecast)</button>
+        <button type="button" data-src="https://live.radyositesihazir.com:10997/stream" data-title="DamarTürk FM">DamarTürk (SHOUTcast v2)</button>
+        <button type="button" data-src="https://icecast.radiofrance.fr/fip-midfi.mp3" data-title="FIP">FIP (no metadata)</button>
       </div>
-      <label>Station title <input name="title" value="SomaFM Groove Salad"></label>
+      <label>Station title <input name="title" value="Classic Vinyl HD"></label>
       <label>Now playing (meta)
         <select name="meta"><option>auto</option><option>off</option><option value="custom">custom URL…</option></select>
       </label>
