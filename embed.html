@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radio Player</title>
+<!--
+  iframe embed for site builders that strip <script> tags (WordPress.com, Squarespace, ...).
+  <iframe src="https://onojk.github.io/tunein-embed/embed.html?src=https://example.com/stream&title=My%20Station"
+          style="width:100%;height:150px;border:0" allow="autoplay; encrypted-media" loading="lazy"></iframe>
+  Every <radio-player> attribute is accepted as a query parameter, plus accent/bg/fg/font/radius
+  for the --rp-* colours (e.g. accent=%2319c37d or accent=19c37d).
+-->
+<style>
+  html, body { margin: 0; background: transparent; }
+  radio-player { min-width: 0; }
+</style>
+<script src="dist/player.js"></script>
+</head>
+<body>
+<radio-player></radio-player>
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var p = document.querySelector('radio-player');
+    var attrs = ['src', 'title', 'meta', 'theme', 'visualizer', 'art', 'logo', 'history', 'poll', 'volume', 'cors'];
+    attrs.forEach(function (name) {
+      if (q.has(name)) p.setAttribute(name, q.get(name));
+    });
+    ['accent', 'bg', 'fg', 'font', 'radius'].forEach(function (name) {
+      var v = q.get(name);
+      if (!v) return;
+      if (/^[0-9a-f]{3,8}$/i.test(v)) v = '#' + v; // allow accent=ff4f6d without the encoded "#"
+      p.style.setProperty('--rp-' + name, v);
+    });
+    // Tell the parent page our height so it can size the iframe (optional; see README).
+    var last = 0;
+    function post() {
+      var h = Math.ceil(p.getBoundingClientRect().height);
+      if (h && h !== last && parent !== window) parent.postMessage({ type: 'tunein-embed:height', height: (last = h) }, '*');
+    }
+    if (window.ResizeObserver) new ResizeObserver(post).observe(p);
+    p.addEventListener('rp-track', post);
+  })();
+</script>
+</body>
+</html>
