@@ -1,0 +1,1 @@
+(()=>{var t=class extends HTMLElement{constructor(){super(),this.attachShadow({mode:"open"})}connectedCallback(){this.shadowRoot.textContent=this.getAttribute("title")||"Radio"}};/*! tunein-embed | MIT License | (c) 2026 Jonathan Kendall | github.com/onojk/tunein-embed */customElements.get("radio-player")||customElements.define("radio-player",t);})();
