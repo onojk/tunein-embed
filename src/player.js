@@ -1,7 +1,8 @@
 import { css } from './styles.js';
-import { isIOS, storage } from './util.js';
+import { isIOS, storage, reducedMotion, fetchWithTimeout } from './util.js';
 import { MetadataSource } from './metadata.js';
 import { lookupArt } from './art.js';
+import { Visualizer } from './visualizer.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 const ICON = {
@@ -40,9 +41,26 @@ const HISTORY_SIZE = 10;
 
 let activePlayer = null; // only one <radio-player> plays at a time per page
 
+// Does the stream server send CORS headers? Decides whether Web Audio is safe to use.
+// fetch() resolves as soon as headers arrive; we then cancel the endless body.
+const corsCache = new Map();
+function probeCors(url) {
+  if (new URL(url).origin === location.origin) return Promise.resolve(true);
+  if (!corsCache.has(url)) {
+    corsCache.set(
+      url,
+      fetchWithTimeout(url, 6000, { mode: 'cors' }).then(
+        (r) => (r.body && r.body.cancel().catch(() => {}), r.ok),
+        () => false
+      )
+    );
+  }
+  return corsCache.get(url);
+}
+
 export class RadioPlayer extends HTMLElement {
   static get observedAttributes() {
-    return ['src', 'title', 'volume', 'meta', 'poll', 'art', 'logo', 'history'];
+    return ['src', 'title', 'volume', 'meta', 'poll', 'art', 'logo', 'history', 'visualizer', 'cors'];
   }
 
   constructor() {
@@ -93,17 +111,22 @@ export class RadioPlayer extends HTMLElement {
         if (w !== lastW) {
           lastW = w;
           this._fitMarquee();
+          if (this.viz) this.viz.resize();
         }
       });
       this._ro.observe(this.ui.rp);
     }
     this._renderHistory();
     this._startMeta();
+    this.viz = new Visualizer(this.ui.canvas, this);
+    this._applyVisualizer();
   }
 
   disconnectedCallback() {
     this.pause();
     this._stopMeta();
+    if (this.viz) this.viz.destroy();
+    this.viz = this.audio = null; // a MediaElementSource is bound to its AudioContext forever
     window.removeEventListener('online', this._onOnline);
     if (this._ro) this._ro.disconnect();
   }
@@ -119,12 +142,15 @@ export class RadioPlayer extends HTMLElement {
       this._renderTrack();
       this._renderHistory();
       this._startMeta();
+      this._applyVisualizer();
       if (this.wantPlay) {
         this.pause();
         this.play();
       }
     } else if (name === 'meta' || name === 'poll') {
       this._startMeta();
+    } else if (name === 'visualizer' || name === 'cors') {
+      this._applyVisualizer();
     } else if (name === 'history') {
       this._renderHistory();
     } else if (name === 'volume') {
@@ -244,7 +270,9 @@ export class RadioPlayer extends HTMLElement {
     this.retries = 0;
     this.everPlayed = false;
     this._setMsg('');
-    if (!this.audio) this._createAudio();
+    const cors = !!this.viz && this._useWebAudio();
+    if (!this.audio || this.audio.crossOrigin !== (cors ? 'anonymous' : null)) this._createAudio(cors);
+    if (cors && !this.viz.attach(this.audio)) this._createAudio(false);
     this._load(url);
     this._setupMediaSession();
     if (this._meta && !this._metaTimer) this._startMeta(); // metadata gave up earlier: try again
@@ -287,9 +315,14 @@ export class RadioPlayer extends HTMLElement {
     return url.href;
   }
 
-  _createAudio() {
+  _createAudio(cors) {
+    if (this.audio) {
+      this.audio.removeAttribute('src');
+      this.audio.load();
+    }
     const a = new Audio();
     a.preload = 'none';
+    if (cors) a.crossOrigin = 'anonymous';
     a.volume = this._volume;
     a.muted = this._muted;
     for (const ev of ['playing', 'waiting', 'pause', 'ended', 'error']) a.addEventListener(ev, this._onAudio);
@@ -346,6 +379,8 @@ export class RadioPlayer extends HTMLElement {
 
   _onError(reason) {
     this._reloading = false;
+    // A crossOrigin request failed (server has no CORS after all): play without Web Audio.
+    if (this.audio.crossOrigin && !this.everPlayed) return this._dropWebAudio();
     if (!this.everPlayed && this._mixed) {
       return this._fail(
         'This page is served over HTTPS but the stream URL is http://, so the browser blocks it. ' +
@@ -385,8 +420,59 @@ export class RadioPlayer extends HTMLElement {
       if (this.state !== 'playing' && !a.paused && this._lastTime > 0) this._setState('playing');
       // Healthy for a while: reset the backoff.
       if (this.retries && now - this._playingSince > 30000) this.retries = 0;
+      // Time is moving but the analyser hears pure silence for 6s+: the browser is
+      // muting a non-CORS response. Never let the visualizer cost us the audio.
+      if (this.viz && this.viz.analyser && now - this._playingSince < 30000) {
+        this._silentTicks = this.viz.isSilent() ? (this._silentTicks || 0) + 1 : 0;
+        if (this._silentTicks >= 3) this._dropWebAudio();
+      }
     } else if (now - this._lastProgress > STALL_MS) {
       this._scheduleRetry('stalled');
+    }
+  }
+
+  _dropWebAudio() {
+    console.info('[radio-player] stream has no usable CORS headers; playing without the audio-reactive visualizer');
+    this._corsOk = false;
+    this._silentTicks = 0;
+    this.viz.detach();
+    this._createAudio(false);
+    this._load(this._streamUrl());
+  }
+
+  // ---- visualizer --------------------------------------------------------
+
+  _vizMode() {
+    const v = (this.getAttribute('visualizer') || 'lines').toLowerCase();
+    return v === 'off' || v === 'bars' ? v : 'lines';
+  }
+
+  // Web Audio only when it's safe and useful. Never on iOS: Safari suspends the
+  // AudioContext when the screen locks, which would stop background playback.
+  _wantsWebAudio() {
+    return (
+      this._vizMode() !== 'off' &&
+      this.getAttribute('cors') !== 'off' &&
+      !isIOS &&
+      !reducedMotion() &&
+      !!(window.AudioContext || window.webkitAudioContext)
+    );
+  }
+
+  _useWebAudio() {
+    return this._wantsWebAudio() && (this.getAttribute('cors') === 'on' || this._corsOk === true);
+  }
+
+  _applyVisualizer() {
+    if (!this.viz) return;
+    this.viz.setMode(this._vizMode());
+    this._corsOk = undefined;
+    const url = this._streamUrl();
+    if (url && this._wantsWebAudio() && this.getAttribute('cors') !== 'on') {
+      // Probe ahead of time: play() must not await anything (iOS gesture rules).
+      probeCors(url).then((ok) => {
+        if (url === this._streamUrl()) this._corsOk = ok;
+      });
     }
   }
 
@@ -464,6 +550,7 @@ export class RadioPlayer extends HTMLElement {
     play.setAttribute('aria-label', active ? 'Pause' : 'Play');
     play.toggleAttribute('data-loading', state === 'loading' || state === 'reconnecting');
     artWrap.classList.toggle('spin', state === 'playing');
+    if (this.viz) this.viz.setPlaying(state === 'playing');
     this.dispatchEvent(new CustomEvent('rp-state', { detail: { state }, bubbles: true, composed: true }));
   }
 

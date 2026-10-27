@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>visualizer test</title>
+<script src="../dist/player.js"></script>
+<radio-player id="ice" src="http://127.0.0.1:8001/live.mp3" title="CORS Icecast" meta="off"></radio-player>
+<radio-player id="nocors" src="http://127.0.0.1:8002/stream" title="Forced CORS on non-CORS server" meta="off" cors="on" visualizer="bars"></radio-player>
+<radio-player id="silent" src="http://127.0.0.1:8002/stream" title="Silent trap" meta="off" cors="off"></radio-player>
+<script>
+  const r = { test: 'visualizer' };
+  const report = () => fetch('/report', { method: 'POST', body: JSON.stringify(r) });
+  setTimeout(() => {
+    ice.play();
+    setTimeout(() => {
+      r.ice = { corsOk: ice._corsOk, crossOrigin: ice.audio.crossOrigin, analyser: !!ice.viz.analyser,
+                silent: ice.viz.isSilent(), state: ice.state, lvl: ice.ui.rp.style.getPropertyValue('--lvl') };
+      nocors.play();
+      setTimeout(() => {
+        r.nocors = { state: nocors.state, crossOrigin: nocors.audio.crossOrigin, analyser: !!nocors.viz.analyser };
+        silent.play();
+        setTimeout(() => {
+          // Simulate the classic bug: analyser on a non-CORS element => silence. Watchdog must undo it.
+          silent.viz.attach(silent.audio);
+          silent._playingSince = Date.now();
+          r.silentBefore = { analyser: !!silent.viz.analyser, silent: silent.viz.isSilent() };
+          setTimeout(() => {
+            r.silentAfter = { analyser: !!silent.viz.analyser, state: silent.state, t: silent.audio.currentTime > 0 };
+            report();
+          }, 11000);
+        }, 3000);
+      }, 5000);
+    }, 4000);
+  }, 1500); // let the CORS probe finish
+</script>
