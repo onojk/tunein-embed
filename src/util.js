@@ -33,7 +33,23 @@ export function storage(key, value) {
   return null;
 }
 
-// fetch() with a timeout, always without credentials so CORS "*" works.
+// GET a small text resource. The timeout covers reading the body too: some
+// SHOUTcast servers answer unknown paths with the endless audio stream.
+export async function fetchText(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { cache: 'no-store', credentials: 'omit', signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+    if (/^(audio|video)\/|ogg/.test(res.headers.get('content-type') || '')) throw new Error(`${url} is a stream`);
+    return await res.text();
+  } finally {
+    clearTimeout(t);
+    ctrl.abort();
+  }
+}
+
+// fetch() with a timeout on the response headers only, without credentials so CORS "*" works.
 export async function fetchWithTimeout(url, ms = 8000, init = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);

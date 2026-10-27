@@ -2,10 +2,10 @@
 <meta charset="utf-8">
 <title>metadata test</title>
 <script src="../dist/player.js"></script>
-<radio-player id="ice" src="http://127.0.0.1:8001/live.mp3" visualizer="off" history="open" poll="5"></radio-player>
-<radio-player id="sc" src="http://127.0.0.1:8002/stream" title="No CORS" visualizer="off" poll="5"></radio-player>
-<radio-player id="custom" src="http://127.0.0.1:8001/live.mp3" meta="fixtures/azuracast.json" title="Custom" visualizer="off"></radio-player>
-<radio-player id="off" src="http://127.0.0.1:8001/live.mp3" meta="off" title="Static Title" visualizer="off"></radio-player>
+<radio-player id="ice" src="http://127.0.0.1:8091/live.mp3" visualizer="off" history="open" poll="5"></radio-player>
+<radio-player id="sc" src="http://127.0.0.1:8092/stream" title="No CORS" visualizer="off" poll="5"></radio-player>
+<radio-player id="custom" src="http://127.0.0.1:8091/live.mp3" meta="fixtures/azuracast.json" title="Custom" visualizer="off"></radio-player>
+<radio-player id="off" src="http://127.0.0.1:8091/live.mp3" meta="off" title="Static Title" visualizer="off"></radio-player>
 <script>
   const text = (el) => el.shadowRoot.querySelector('.track span').textContent;
   setTimeout(() => {

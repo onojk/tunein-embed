@@ -2,12 +2,11 @@
 // Every reader resolves to a track ({ artist, title, text, art, station? }) or throws.
 // All of these are cross-origin requests, so they only work when the server sends
 // Access-Control-Allow-Origin (Icecast 2.4+ does by default; SHOUTcast usually doesn't).
-import { fetchWithTimeout, track } from './util.js';
+import { fetchText, track } from './util.js';
 
 async function get(url, as = 'json') {
-  const res = await fetchWithTimeout(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
-  return as === 'json' ? res.json() : res.text();
+  const text = await fetchText(url);
+  return as === 'json' ? JSON.parse(text) : text;
 }
 
 // Icecast /status-json.xsl. With several mounts, pick the one matching the stream URL.
@@ -96,9 +95,7 @@ export function parseCustom(d) {
 }
 
 async function custom(url) {
-  const res = await fetchWithTimeout(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
-  const text = await res.text();
+  const text = await fetchText(url);
   let data;
   try {
     data = JSON.parse(text);
@@ -119,15 +116,12 @@ export class MetadataSource {
   async fetch() {
     if (this.mode !== 'auto') return custom(new URL(this.mode, location.href).href);
     if (this.reader) return AUTO[this.reader](this.stream);
-    for (const name in AUTO) {
-      try {
-        const t = await AUTO[name](this.stream);
-        this.reader = name;
-        return t;
-      } catch (e) {
-        // Try the next server type.
-      }
-    }
-    throw new Error('No metadata endpoint found (or the server does not send CORS headers)');
+    // Try every server type at once; the first success in priority order wins.
+    const names = Object.keys(AUTO);
+    const results = await Promise.allSettled(names.map((n) => AUTO[n](this.stream)));
+    const i = results.findIndex((r) => r.status === 'fulfilled');
+    if (i < 0) throw new Error('No metadata endpoint found (or the server does not send CORS headers)');
+    this.reader = names[i];
+    return results[i].value;
   }
 }

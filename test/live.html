@@ -1,0 +1,62 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>live station test</title>
+<script src="../dist/player.js"></script>
+<div id="out"></div>
+<script>
+  // Plays real public stations (one at a time) and reports what worked: playback,
+  // CORS (Web Audio analyser), and which now-playing reader was detected.
+  // Served from http://localhost so http:// streams are allowed.
+  const fixed = [
+    { name: 'SomaFM Groove Salad', url: 'https://ice1.somafm.com/groovesalad-128-mp3' },
+    { name: 'FIP (Radio France)', url: 'https://icecast.radiofrance.fr/fip-midfi.mp3' },
+  ];
+  const report = (o) => fetch('/report', { method: 'POST', body: JSON.stringify(o) });
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function candidates() {
+    // radio-browser.info lists codec/server-ish info; pick popular streams on classic Icecast/SHOUTcast ports.
+    try {
+      const r = await fetch('https://de1.api.radio-browser.info/json/stations/search?limit=400&order=clickcount&reverse=true&hidebroken=true&codec=MP3');
+      const list = await r.json();
+      const pick = list.filter((s) => /^https?:\/\/[^/]+:\d{4}\/(;|stream|live|[\w-]+)?/.test(s.url_resolved));
+      return pick.slice(0, 14).map((s) => ({ name: s.name.trim().slice(0, 40), url: s.url_resolved }));
+    } catch (e) {
+      report({ test: 'live', error: 'radio-browser lookup failed: ' + e.message });
+      return [];
+    }
+  }
+
+  (async () => {
+    // ?only=host:port tests just the radio-browser stations on that server (plus none of the fixed list).
+    const qs = new URLSearchParams(location.search);
+    const only = qs.get('only');
+    const list = qs.has('src')
+      ? qs.getAll('src').map((url) => ({ name: new URL(url).host, url }))
+      : only
+      ? (await (await fetch('https://de1.api.radio-browser.info/json/stations/search?limit=3000&order=clickcount&reverse=true&hidebroken=true')).json())
+          .filter((s) => s.url_resolved.includes(only)).slice(0, 2).map((s) => ({ name: s.name.trim(), url: s.url_resolved }))
+      : fixed.concat(await candidates());
+    report({ test: 'live', only, matched: list });
+    for (const s of list) {
+      const p = document.createElement('radio-player');
+      p.setAttribute('src', s.url);
+      p.setAttribute('title', s.name);
+      p.setAttribute('poll', '5');
+      document.getElementById('out').appendChild(p);
+      await sleep(4000); // CORS probe + first metadata poll
+      p.play();
+      await sleep(9000);
+      const res = {
+        test: 'live', name: s.name, url: s.url, state: p.state, played: !!(p.audio && p.audio.currentTime > 0),
+        cors: p._corsOk, analyser: !!(p.viz && p.viz.analyser), meta: (p._meta && p._meta.reader) || null,
+        now: (p.now && p.now.text) || null,
+      };
+      if (res.analyser) res.silent = p.viz.isSilent();
+      report(res);
+      p.pause();
+      p.remove();
+    }
+    report({ test: 'live', done: true });
+  })();
+</script>

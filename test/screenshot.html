@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>screenshot</title>
+<style>body{margin:0;padding:28px;background:linear-gradient(135deg,#2b2f3d,#585f73);display:grid;gap:18px;grid-template-columns:1fr 330px;align-items:start;font-family:system-ui}</style>
+<script src="../dist/player.js"></script>
+<radio-player id="a" src="http://127.0.0.1:8091/live.mp3" title="Night Drive FM" history="open" meta="off"></radio-player>
+<radio-player id="b" src="http://127.0.0.1:8091/live.mp3" title="Morning Light" theme="light" meta="off" visualizer="bars"></radio-player>
+<script>
+  // Fake a playing state with history for a static README image.
+  const T = (artist, title) => ({ artist, title, text: `${artist} - ${title}` });
+  a._setTrack(T('Kettle & Spoon', 'Saturday Static'));
+  a._setTrack(T('Mira Vale', 'Glasshouse'));
+  a._setTrack(T('The Paper Owls', 'Slow Orbit (Extended Mix)'));
+  a._setTrack(T('Neon Tide', 'Lanterns Over the Harbour'));
+  b._setTrack(T('Juniper Coast', 'Sundial'));
+  a._setState('playing');
+  a.viz.setPlaying(true);
+</script>

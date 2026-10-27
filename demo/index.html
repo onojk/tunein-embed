@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tunein-embed demo</title>
+<meta name="description" content="Drop-in web player for Icecast and SHOUTcast radio streams. Test your own station.">
+<style>
+  :root { --bg: #f4f4f7; --card: #fff; --fg: #17181f; --muted: #5d6070; --line: #dcdde3; --accent: #e3264b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e0f14; --card: #181a22; --fg: #ececf1; --muted: #9a9cab; --line: #2a2c37; --accent: #ff4f6d; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: -.01em; }
+  h2 { font-size: 17px; margin: 36px 0 12px; }
+  p.lead { color: var(--muted); margin: 0 0 28px; }
+  a { color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .wide { grid-column: 1 / -1; }
+  input, select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
+  input[type=color] { padding: 2px; height: 40px; }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); align-items: center; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 6px 12px; }
+  button:hover { border-color: var(--accent); }
+  #preview { margin: 20px 0 0; }
+  pre { margin: 0; overflow-x: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-size: 13px; }
+  .snippet { display: grid; gap: 8px; margin-bottom: 18px; }
+  .snippet header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; }
+  .note { font-size: 13.5px; color: var(--muted); }
+  #status { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 1.4em; }
+</style>
+<script src="../dist/player.js"></script>
+</head>
+<body>
+<main>
+  <h1>tunein-embed</h1>
+  <p class="lead">A drop-in web player for live Icecast &amp; SHOUTcast radio. Paste your stream URL to test it, then copy the snippet.
+    <a href="https://github.com/onojk/tunein-embed">Docs &amp; source on GitHub</a>.</p>
+
+  <div class="card">
+    <form id="f" onsubmit="return false">
+      <label class="wide">Stream URL (must be https:// here)
+        <input name="src" type="url" required placeholder="https://radio.example.com:8443/stream" value="https://ice1.somafm.com/groovesalad-128-mp3">
+      </label>
+      <div class="presets wide">Try:
+        <button type="button" data-src="https://ice1.somafm.com/groovesalad-128-mp3" data-title="SomaFM Groove Salad">SomaFM (Icecast)</button>
+        <button type="button" data-src="https://icecast.radiofrance.fr/fip-midfi.mp3" data-title="FIP">FIP (Icecast)</button>
+      </div>
+      <label>Station title <input name="title" value="SomaFM Groove Salad"></label>
+      <label>Now playing (meta)
+        <select name="meta"><option>auto</option><option>off</option><option value="custom">custom URL…</option></select>
+      </label>
+      <label>Theme <select name="theme"><option>dark</option><option>light</option><option>auto</option></select></label>
+      <label>Visualizer <select name="visualizer"><option>lines</option><option>bars</option><option>off</option></select></label>
+      <label>Album art <select name="art"><option value="itunes">iTunes lookup</option><option value="">logo only</option></select></label>
+      <label>Recently played <select name="history"><option value="on">on</option><option value="open">open</option><option value="off">off</option></select></label>
+      <label>Accent colour <input name="accent" type="color" value="#ff4f6d"></label>
+      <label>Logo URL (optional) <input name="logo" type="url" placeholder="https://…/logo.png"></label>
+      <label class="wide" id="metaUrlRow" hidden>Custom metadata URL <input name="metaUrl" type="url" placeholder="https://…/api/nowplaying/1"></label>
+    </form>
+    <div id="preview"></div>
+    <div id="status"></div>
+  </div>
+
+  <h2>Embed it</h2>
+  <div class="snippet">
+    <header>1. Script tag (any site that allows &lt;script&gt;) <button type="button" data-copy="code1">Copy</button></header>
+    <pre><code id="code1"></code></pre>
+  </div>
+  <div class="snippet">
+    <header>2. iframe (WordPress.com, Squarespace, Wix…) <button type="button" data-copy="code2">Copy</button></header>
+    <pre><code id="code2"></code></pre>
+  </div>
+  <div class="snippet">
+    <header>3. WordPress shortcode (with the plugin installed) <button type="button" data-copy="code3">Copy</button></header>
+    <pre><code id="code3"></code></pre>
+  </div>
+  <p class="note">No now-playing info or a flat visualizer? Your stream server isn't sending CORS headers — playback still works.
+    See <a href="https://github.com/onojk/tunein-embed#cors-and-https">CORS &amp; HTTPS</a> for one-line fixes.</p>
+</main>
+<script>
+  const CDN = 'https://cdn.jsdelivr.net/gh/onojk/tunein-embed@1/dist/player.js';
+  const IFRAME = 'https://onojk.github.io/tunein-embed/embed.html';
+  const f = document.getElementById('f');
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+  function options() {
+    const d = Object.fromEntries(new FormData(f));
+    const o = { src: d.src.trim(), title: d.title.trim(), meta: d.meta === 'custom' ? d.metaUrl.trim() || 'auto' : d.meta,
+      theme: d.theme, visualizer: d.visualizer, art: d.art, logo: d.logo.trim(), history: d.history };
+    for (const k in o) if (!o[k] || (k === 'meta' && o[k] === 'auto') || (k === 'history' && o[k] === 'off')) delete o[k];
+    return { attrs: o, accent: d.accent };
+  }
+
+  function render() {
+    document.getElementById('metaUrlRow').hidden = f.elements.meta.value !== 'custom';
+    const { attrs, accent } = options();
+    const style = accent.toLowerCase() !== '#ff4f6d' ? ` style="--rp-accent:${accent}"` : '';
+    const attrText = Object.entries(attrs).map(([k, v]) => `${k}="${esc(v)}"`).join(' ');
+
+    const preview = document.getElementById('preview');
+    const old = preview.firstElementChild;
+    const key = JSON.stringify(attrs) + accent;
+    if (!old || old.dataset.key !== key) {
+      const p = document.createElement('radio-player');
+      for (const [k, v] of Object.entries(attrs)) p.setAttribute(k, v);
+      p.style.setProperty('--rp-accent', accent);
+      p.dataset.key = key;
+      const wasPlaying = old && old.playing;
+      preview.replaceChildren(p);
+      document.getElementById('status').textContent = '';
+      p.addEventListener('rp-error', (e) => (document.getElementById('status').textContent = e.detail.message));
+      p.addEventListener('rp-track', () => {
+        const r = p._meta && p._meta.reader;
+        document.getElementById('status').textContent = r ? `Now-playing source detected: ${r}` : '';
+      });
+      if (wasPlaying) p.play();
+    }
+
+    document.getElementById('code1').textContent =
+      `<script src="${CDN}"><\/script>\n<radio-player ${attrText}${style}></radio-player>`;
+    const q = new URLSearchParams(attrs);
+    if (style) q.set('accent', accent.slice(1));
+    const h = attrs.history ? 330 : 150;
+    document.getElementById('code2').textContent =
+      `<iframe src="${IFRAME}?${esc(q.toString())}"\n        style="width:100%;height:${h}px;border:0" allow="autoplay; encrypted-media" loading="lazy" title="${esc(attrs.title || 'Radio player')}"></iframe>`;
+    const sc = Object.entries(attrs).map(([k, v]) => `${k}="${v.replace(/"/g, '')}"`).join(' ');
+    document.getElementById('code3').textContent = `[radio_player ${sc}${style ? ` accent="${accent}"` : ''}]`;
+  }
+
+  let t;
+  f.addEventListener('input', () => (clearTimeout(t), (t = setTimeout(render, 400))));
+  document.querySelectorAll('[data-src]').forEach((b) =>
+    b.addEventListener('click', () => {
+      f.elements.src.value = b.dataset.src;
+      f.elements.title.value = b.dataset.title;
+      render();
+    })
+  );
+  document.querySelectorAll('[data-copy]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent);
+        b.textContent = 'Copied!';
+      } catch (e) {
+        b.textContent = 'Select & copy';
+      }
+      setTimeout(() => (b.textContent = 'Copy'), 1500);
+    })
+  );
+  // Allow ?src=...&title=... links to the demo.
+  const q = new URLSearchParams(location.search);
+  for (const k of ['src', 'title']) if (q.get(k)) f.elements[k].value = q.get(k);
+  render();
+</script>
+</body>
+</html>

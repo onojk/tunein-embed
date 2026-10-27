@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>shoutcast endpoint survey</title>
+<script>
+  // Which SHOUTcast metadata endpoints are readable cross-origin (i.e. send CORS)? Also: why does SomaFM fail?
+  const report = (o) => fetch('/report', { method: 'POST', body: JSON.stringify(o) });
+  const tryFetch = async (url) => {
+    const c = new AbortController();
+    setTimeout(() => c.abort(), 6000);
+    try {
+      const r = await fetch(url, { signal: c.signal, cache: 'no-store' });
+      const t = await r.text();
+      return `${r.status}:${t.replace(/\s+/g, ' ').slice(0, 70)}`;
+    } catch (e) {
+      return 'ERR(' + e.name + ')';
+    }
+  };
+  (async () => {
+    const a = new Audio('https://ice1.somafm.com/groovesalad-128-mp3');
+    a.muted = true;
+    a.play().catch((e) => report({ test: 'soma', playErr: e.name + ' ' + e.message }));
+    a.onerror = () => report({ test: 'soma', code: a.error.code, msg: a.error.message });
+    a.onplaying = () => report({ test: 'soma', playing: true });
+    report({ test: 'soma-status', status: await tryFetch('https://somafm.com/songs/groovesalad.json') });
+
+    const r = await fetch('https://de1.api.radio-browser.info/json/stations/search?limit=3000&order=clickcount&reverse=true&hidebroken=true');
+    const list = (await r.json()).filter((s) => /^https?:\/\/[^/]+:\d+\/;?(stream)?(\/1)?\/?$/.test(s.url_resolved));
+    const origins = [...new Set(list.map((s) => new URL(s.url_resolved).origin))].slice(0, 25);
+    await Promise.all(origins.map(async (o) => {
+      const res = { test: 'sc', origin: o };
+      for (const p of ['/stats?sid=1&json=1', '/currentsong?sid=1', '/7.html', '/status-json.xsl']) res[p] = await tryFetch(o + p);
+      report(res);
+    }));
+    report({ test: 'sc', done: true });
+  })();
+</script>

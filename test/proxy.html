@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>proxy test</title>
+<script src="../dist/player.js"></script>
+<!-- 8092 is the no-CORS "SHOUTcast" mock; 8093 is proxy/proxy.js in front of it -->
+<radio-player id="p" src="http://127.0.0.1:8093/stream" title="Proxied" poll="5"></radio-player>
+<script>
+  setTimeout(() => p.play(), 1500);
+  setTimeout(() => fetch('/report', { method: 'POST', body: JSON.stringify({ test: 'proxy', state: p.state,
+    corsOk: p._corsOk, analyser: !!p.viz.analyser, silent: p.viz.isSilent(), reader: p._meta.reader,
+    now: p.shadowRoot.querySelector('.track span').textContent }) }), 9000);
+</script>

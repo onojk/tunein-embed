@@ -2,12 +2,12 @@
 """Local mock radio servers for developing/testing tunein-embed without real stations.
 
   python3 test/mock-server.py
-    :8000  static files from the repo root (open http://localhost:8000/test/)
-    :8001  Icecast-like:   /live.mp3, /status-json.xsl          (sends CORS headers)
-    :8002  SHOUTcast-like: /stream, /stats?json=1, /currentsong, /7.html  (no CORS)
+    :8090  static files from the repo root (open http://localhost:8090/test/)
+    :8091  Icecast-like:   /live.mp3, /status-json.xsl          (sends CORS headers)
+    :8092  SHOUTcast-like: /stream, /stats?json=1, /currentsong, /7.html  (no CORS)
 
   Add ?drop=N to a stream URL to cut the connection after N seconds (tests reconnect).
-  POST /report on :8000 prints the JSON body (used by the headless test pages).
+  POST /report on :8090 prints the JSON body (used by the headless test pages).
 """
 import json, os, subprocess, sys, threading, time
 from http.server import SimpleHTTPRequestHandler, BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -109,10 +109,10 @@ def serve(port, handler):
 
 
 if __name__ == '__main__':
-    for port, h in ((8001, Radio), (8002, NoCors)):
+    for port, h in ((8091, Radio), (8092, NoCors)):
         threading.Thread(target=serve, args=(port, h), daemon=True).start()
-    print('mock servers on :8000 (static) :8001 (icecast+cors) :8002 (shoutcast, no cors)', flush=True)
+    print('mock servers on :8090 (static) :8091 (icecast+cors) :8092 (shoutcast, no cors)', flush=True)
     try:
-        serve(8000, Static)
+        serve(8090, Static)
     except KeyboardInterrupt:
         sys.exit(0)
